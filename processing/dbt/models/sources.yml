@@ -1,0 +1,32 @@
+version: 2
+
+sources:
+  - name: github_raw
+    description: Raw tables loaded by dlt from the GitHub API
+    schema: github_raw
+    tables:
+      - name: repositories
+        description: GitHub repositories indexed by topic
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: full_name
+            tests: [not_null]
+          - name: stars
+            tests: [not_null]
+
+      - name: issues
+        description: GitHub issues across tracked repos
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: repo_full_name
+            tests: [not_null]
+
+      - name: pull_requests
+        description: GitHub pull requests across tracked repos
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: repo_full_name
+            tests: [not_null]

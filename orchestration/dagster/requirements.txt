@@ -1,0 +1,6 @@
+dagster==1.7.7
+dagster-webserver==1.7.7
+dagster-dbt==0.23.7
+dbt-duckdb==1.8.1
+dbt-utils>=1.0.0,<2.0.0
+python-dotenv==1.0.1

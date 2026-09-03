@@ -1,0 +1,33 @@
+version: 2
+
+models:
+  - name: repo_health_metrics
+    description: Composite health score per repo combining stars, issue close rate, PR merge rate, and recency.
+    columns:
+      - name: repo_id
+        tests: [not_null, unique]
+      - name: health_score
+        tests:
+          - not_null
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100
+
+  - name: developer_activity
+    description: Per-developer contribution summary across issues and PRs.
+    columns:
+      - name: developer
+        tests: [not_null]
+      - name: contribution_score
+        tests: [not_null]
+
+  - name: issue_resolution_stats
+    description: Issue resolution funnel and SLA breakdown per repo.
+    columns:
+      - name: repo_full_name
+        tests: [not_null, unique]
+      - name: close_rate_pct
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 100

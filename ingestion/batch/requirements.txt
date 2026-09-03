@@ -1,0 +1,5 @@
+dlt[filesystem]==0.5.4
+duckdb==0.10.3
+pyarrow==15.0.2
+python-dotenv==1.0.1
+requests==2.31.0
