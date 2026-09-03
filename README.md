@@ -96,6 +96,27 @@ GitHub Pulse fixes that. It's a data platform for open source maintainers and en
 
 Ingest historical GitHub data and build the core health metrics.
 
+```mermaid
+flowchart LR
+    A([GitHub REST API]) -->|repos / issues / PRs| B[dlt\nincremental load]
+    B -->|parquet| C[(DuckDB\ngithub_raw)]
+
+    C --> D[stg_repos]
+    C --> E[stg_issues]
+    C --> F[stg_pull_requests]
+
+    D & E & F --> G[repo_health_metrics\n0–100 score]
+    D & E & F --> H[developer_activity\ncontribution score]
+    E --> I[issue_resolution_stats\nSLA funnel]
+
+    G & H & I --> J[(DuckDB\nmain schema)]
+
+    K([Dagster]) -->|daily 06:00 UTC| B
+    K -->|triggers| G
+    K -->|triggers| H
+    K -->|triggers| I
+```
+
 **What's running:**
 - dlt pipeline ingesting incrementally via `updated_at`:
   - 2,681 repositories across 4 data engineering topics
