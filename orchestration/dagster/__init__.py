@@ -10,6 +10,7 @@ from .assets.batch_ingestion import (
 )
 from .assets.dbt_assets import github_dbt_assets
 from .jobs.daily_pipeline import daily_schedule, github_batch_job
+from .sensors.kafka_sensor import kafka_lag_sensor
 
 DBT_PROJECT_DIR = Path(__file__).parents[2] / "processing" / "dbt"
 
@@ -22,6 +23,7 @@ defs = Definitions(
     ],
     jobs=[github_batch_job],
     schedules=[daily_schedule],
+    sensors=[kafka_lag_sensor],
     resources={
         "dbt": DbtCliResource(project_dir=str(DBT_PROJECT_DIR)),
     },

@@ -2,6 +2,7 @@
 dlt[filesystem]>=0.5.4
 requests>=2.31.0
 python-dotenv>=1.0.1
+confluent-kafka>=2.3.0
 
 # Storage / query
 duckdb>=1.0.0

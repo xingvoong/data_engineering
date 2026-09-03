@@ -143,19 +143,35 @@ Apache Iceberg issue SLA: 69% close rate, median 195 days to close, only 20% res
 
 ---
 
-### Phase 2 — Real-Time Stale Issue Detection
+### Phase 2 — Real-Time Stale Issue Detection ✅
 
 Add a streaming layer that catches problems as they happen — not 24 hours later when the batch runs.
 
-**What gets built:**
-- Kafka producer: polls GitHub Events API every 60s, publishes to `github-events` topic
-- Flink job: detects issues with no maintainer response within a configurable SLA window
-- Sink: stale issue alerts written to ClickHouse in real time
-- Dagster sensor: monitors Kafka consumer lag, alerts when lag exceeds threshold
+```mermaid
+flowchart LR
+    A([GitHub Events API]) -->|poll every 60s| B[Kafka Producer]
+    B -->|github-events topic| C[(Kafka\n3 partitions)]
+
+    C --> D[Flink Job]
+
+    D -->|5-min tumbling window\ncounts per repo/type| E[(ClickHouse\nevent_aggregates)]
+    D -->|issue open > SLA days\nno close action| F[(ClickHouse\nstale_issue_alerts)]
+
+    G([Dagster Sensor]) -->|check lag every 60s| C
+    G -->|lag > 1000 → alert| H[Dagster UI]
+```
+
+**What's running:**
+- Kafka producer polling GitHub Events API every 60s, deduplicating in-memory, publishing to `github-events` (3 partitions)
+- Flink job with two pipelines:
+  - 5-minute tumbling window aggregations (event count per repo + type) → `event_aggregates`
+  - Stale issue detection (IssuesEvents open > SLA threshold) → `stale_issue_alerts`
+- ClickHouse tables for real-time query access
+- Dagster sensor polling consumer group lag every 60s, surfaces alert in UI when lag > 1000
 
 **Why streaming matters here:** A stale issue caught in 5 minutes can be triaged before it gets buried. Catching it in 24 hours (batch) means it's already in a contributor's bad experience.
 
-**Skills demonstrated:** Kafka, Apache Flink, stream windowing, ClickHouse real-time ingestion
+**Skills demonstrated:** Kafka, Apache Flink, stream windowing, ClickHouse real-time ingestion, Dagster sensors
 
 ---
 
