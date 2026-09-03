@@ -10,7 +10,6 @@ renamed as (
         title,
         state,
         author_login,
-        labels,
         comments,
         created_at::timestamp as created_at,
         updated_at::timestamp as updated_at,

@@ -23,22 +23,33 @@ HEADERS = {
 }
 
 
-def paginate(url: str, params: dict = None) -> Iterator[list]:
-    """Yield pages of results from a GitHub API endpoint."""
+def paginate(url: str, params: dict = None, max_pages: int = 10) -> Iterator[list]:
+    """Yield pages of results from a GitHub API endpoint.
+
+    GitHub Search API caps at 1000 results (10 pages × 100). Stops cleanly at max_pages.
+    """
+    import time
+
     params = params or {}
     params["per_page"] = 100
     page = 1
 
-    while True:
+    while page <= max_pages:
         params["page"] = page
         response = requests.get(url, headers=HEADERS, params=params)
+
+        # Search API returns 422 past page 10 — stop cleanly
+        if response.status_code == 422:
+            break
+
         response.raise_for_status()
         data = response.json()
 
-        if not data:
+        items = data if isinstance(data, list) else data.get("items", data)
+        if not items:
             break
 
-        yield data
+        yield items
         page += 1
 
         # Respect rate limit
@@ -47,7 +58,6 @@ def paginate(url: str, params: dict = None) -> Iterator[list]:
             reset_time = int(response.headers.get("X-RateLimit-Reset", 0))
             wait = max(0, reset_time - int(datetime.now(timezone.utc).timestamp()))
             print(f"Rate limit hit. Waiting {wait}s...")
-            import time
             time.sleep(wait + 1)
 
 
@@ -72,8 +82,7 @@ def github_repos(
             "sort": "updated",
             "order": "desc",
         }
-        for page in paginate(f"{BASE_URL}/search/repositories", params=params):
-            items = page if isinstance(page, list) else page.get("items", [])
+        for items in paginate(f"{BASE_URL}/search/repositories", params=params):
             for repo in items:
                 yield {
                     "id": repo["id"],
@@ -122,8 +131,8 @@ def github_issues(
             "direction": "desc",
             "since": updated_at.last_value,
         }
-        for page in paginate(f"{BASE_URL}/repos/{repo}/issues", params=params):
-            for issue in page:
+        for items in paginate(f"{BASE_URL}/repos/{repo}/issues", params=params, max_pages=50):
+            for issue in items:
                 # GitHub issues API returns PRs too — filter them out
                 if "pull_request" in issue:
                     continue
@@ -168,8 +177,8 @@ def github_pull_requests(
             "sort": "updated",
             "direction": "desc",
         }
-        for page in paginate(f"{BASE_URL}/repos/{repo}/pulls", params=params):
-            for pr in page:
+        for items in paginate(f"{BASE_URL}/repos/{repo}/pulls", params=params, max_pages=50):
+            for pr in items:
                 yield {
                     "id": pr["id"],
                     "number": pr["number"],
@@ -204,9 +213,15 @@ def github_source(
 
 
 if __name__ == "__main__":
+    import os
+
+    # Use local filesystem in dev (no Docker/MinIO needed).
+    # Set DESTINATION=s3 in .env to write to MinIO instead.
+    destination = os.getenv("DESTINATION", "duckdb")
+
     pipeline = dlt.pipeline(
         pipeline_name="github_pulse",
-        destination="filesystem",
+        destination=destination,
         dataset_name="github_raw",
     )
 

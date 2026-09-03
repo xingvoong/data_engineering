@@ -10,8 +10,11 @@ models:
         tests:
           - not_null
           - dbt_utils.accepted_range:
-              min_value: 0
-              max_value: 100
+              config:
+                where: "health_score is not null"
+              arguments:
+                min_value: 0
+                max_value: 100
 
   - name: developer_activity
     description: Per-developer contribution summary across issues and PRs.
@@ -29,5 +32,6 @@ models:
       - name: close_rate_pct
         tests:
           - dbt_utils.accepted_range:
-              min_value: 0
-              max_value: 100
+              arguments:
+                min_value: 0
+                max_value: 100

@@ -13,7 +13,6 @@ renamed as (
         forks,
         open_issues,
         primary_language,
-        topics,
         owner_login,
         owner_type,
         is_fork,

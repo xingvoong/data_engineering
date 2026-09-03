@@ -36,7 +36,7 @@ GitHub Pulse fixes that. It's a data platform for open source maintainers and en
                 │                            │
                 ▼                            ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                     RAW LAYER (Apache Iceberg on MinIO/S3)       │
+│                  RAW LAYER (DuckDB / Iceberg on MinIO)           │
 │         repositories │ issues │ pull_requests │ github_events    │
 └──────────────────────────────┬───────────────────────────────────┘
                                 │                  ▲
@@ -50,8 +50,8 @@ GitHub Pulse fixes that. It's a data platform for open source maintainers and en
                     ▼                             ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                     CURATED LAYER                                │
-│    repo_health_metrics │ contributor_retention │ issue_triage    │
-│              event_aggregates (5-min windows)                    │
+│  repo_health_metrics │ developer_activity │ issue_resolution     │
+│              event_aggregates (5-min windows)       [Phase 2]    │
 └────────────────────────────┬─────────────────────────────────────┘
                              │
            ┌─────────────────┼──────────────────┐
@@ -59,6 +59,7 @@ GitHub Pulse fixes that. It's a data platform for open source maintainers and en
     ┌────────────┐   ┌──────────────┐   ┌─────────────┐
     │ ClickHouse │   │    Feast     │   │   Qdrant    │
     │ (analytics)│   │ (features)   │   │  (vectors)  │
+    │ [Phase 2]  │   │ [Phase 3]    │   │ [Phase 3]   │
     └────────────┘   └──────────────┘   └─────────────┘
            │                 │                  │
            └─────────────────┼──────────────────┘
@@ -79,33 +80,45 @@ GitHub Pulse fixes that. It's a data platform for open source maintainers and en
 | Streaming ingest | Kafka + Python producer | Industry standard event backbone |
 | Stream processing | Apache Flink | Low-latency stream processing for real-time issue detection |
 | Table format | Apache Iceberg | The open table format — Snowflake, Databricks, and AWS all support it |
-| Local storage | MinIO | S3-compatible, runs in Docker |
+| Local storage | DuckDB (dev) / MinIO (prod) | DuckDB for fast local iteration; MinIO for S3-compatible Iceberg storage |
 | Transformations | dbt | Curated health metrics and retention models |
 | Analytics DB | ClickHouse | Fast OLAP, handles real-time event aggregates well |
 | Feature store | Feast | Contributor churn features for ML models |
 | Vector DB | Qdrant | Semantic search across repo issues and descriptions |
 | Orchestration | Dagster | Asset-aware, code-first orchestration with daily schedule |
-| Data quality | Great Expectations | Validates pipeline output before it reaches consumers |
-| Local query | DuckDB | Fast local analytics during development |
+| Data quality | dbt tests + Great Expectations | 19 tests validating shape, uniqueness, and value ranges |
 
 ---
 
 ## Project Phases
 
-### Phase 1 — Batch Lakehouse
+### Phase 1 — Batch Lakehouse ✅
 
-Ingest historical GitHub data and build the core health metrics. This is the foundation everything else builds on.
+Ingest historical GitHub data and build the core health metrics.
 
-**What gets built:**
-- dlt pipeline: repos, issues, pull requests (incremental via `updated_at`)
-- Iceberg tables: raw layer on MinIO
-- dbt models:
-  - `repo_health_metrics` — composite score (0–100) based on stars, issue close rate, PR merge rate, recency
-  - `contributor_retention` — tracks whether new contributors return within 90 days
+**What's running:**
+- dlt pipeline ingesting incrementally via `updated_at`:
+  - 2,681 repositories across 4 data engineering topics
+  - 1,383 issues from 5 tracked projects (Apache Iceberg, Flink, Kafka, dbt, Dagster)
+  - 25,000 pull requests
+- dbt models (19 tests, all passing):
+  - `stg_repos`, `stg_issues`, `stg_pull_requests` — clean staging views
+  - `repo_health_metrics` — composite score (0–100): stars + issue close rate + PR merge rate + recency
+  - `developer_activity` — contribution scores per developer per repo
   - `issue_resolution_stats` — SLA funnel: % of issues closed within 1 / 7 / 30 days
-- Dagster: daily schedule ingesting and transforming at 06:00 UTC
+- Dagster assets wired up with daily 06:00 UTC schedule
 
-**Skills demonstrated:** dlt, Iceberg, dbt, DuckDB, ClickHouse, Dagster
+**Sample output:**
+
+| Repo | Stars | Health Score | PR Merge Rate |
+|---|---|---|---|
+| dagster-io/dagster | 16,092 | 64.4 | 70.4% |
+| apache/superset | 74,593 | 50.0 | — |
+| apache/airflow | 46,700 | 49.8 | — |
+
+Apache Iceberg issue SLA: 69% close rate, median 195 days to close, only 20% resolved within 7 days.
+
+**Skills demonstrated:** dlt, dbt, DuckDB, Dagster, incremental loading, data quality testing
 
 ---
 
@@ -150,18 +163,29 @@ cd data_engineering
 cp .env.example .env
 # set GITHUB_TOKEN in .env
 
-# 2. Start all services
-make up
+# 2. Create virtual environment
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 
-# 3. Run batch ingestion
-make ingest-batch
+# 3. Run batch ingestion (writes to local DuckDB)
+python ingestion/batch/github_pipeline.py
 
 # 4. Run dbt transformations
-make dbt-run
+cd processing/dbt
+dbt deps
+dbt run
 
-# 5. Start Dagster UI
-make dagster-dev
+# 5. Run tests
+dbt test
+
+# 6. Start Dagster UI  (optional)
+cd ../..
+dagster dev -f orchestration/dagster/__init__.py
 # open http://localhost:3000
+
+# 7. Start Docker services for full stack (MinIO + ClickHouse)
+make up
 ```
 
 ---
@@ -170,23 +194,22 @@ make dagster-dev
 
 ```
 data_engineering/
-├── docker-compose.yml          # MinIO, ClickHouse, Kafka, Flink, Qdrant
+├── docker-compose.yml          # MinIO, ClickHouse (Phase 2: + Kafka, Flink, Qdrant)
 ├── .env.example                # Environment variable template
 ├── Makefile                    # Commands for every layer
+├── requirements.txt            # Python dependencies
 ├── ingestion/
-│   ├── batch/                  # dlt pipelines (repos, issues, PRs)
-│   └── streaming/              # Kafka producer (GitHub Events API)
+│   ├── batch/                  # dlt pipeline (repos, issues, PRs) — Phase 1 ✅
+│   └── streaming/              # Kafka producer (GitHub Events API) — Phase 2
 ├── processing/
-│   ├── flink/                  # PyFlink streaming jobs
-│   └── dbt/                    # Staging + mart models, tests
+│   ├── flink/                  # PyFlink streaming jobs — Phase 2
+│   └── dbt/                    # Staging + mart models, tests — Phase 1 ✅
 ├── storage/
 │   └── iceberg/                # PyIceberg catalog config, schema definitions
 ├── features/
-│   ├── feast/                  # Feature store config and feature views
-│   └── vectors/                # Embedding pipeline, Qdrant upsert
+│   ├── feast/                  # Feature store config and feature views — Phase 3
+│   └── vectors/                # Embedding pipeline, Qdrant upsert — Phase 3
 ├── orchestration/
-│   └── dagster/                # Assets, jobs, schedules, sensors
-├── analytics/
-│   └── queries/                # Example ClickHouse queries
-└── tests/                      # Unit tests for pipeline and dbt SQL logic
+│   └── dagster/                # Assets, jobs, schedules, sensors — Phase 1 ✅
+└── tests/                      # Unit tests for pipeline and dbt SQL logic — Phase 1 ✅
 ```

@@ -17,7 +17,6 @@ pr_authors as (
         repo_full_name,
         count(*)                                    as prs_opened,
         sum(case when is_merged then 1 else 0 end)  as prs_merged,
-        avg(total_changes)                          as avg_pr_size,
         avg(days_to_merge)                          as avg_days_to_merge
     from {{ ref('stg_pull_requests') }}
     where author_login is not null
@@ -33,7 +32,6 @@ combined as (
         coalesce(ia.issues_closed, 0)                  as issues_closed,
         coalesce(pa.prs_opened, 0)                     as prs_opened,
         coalesce(pa.prs_merged, 0)                     as prs_merged,
-        round(coalesce(pa.avg_pr_size, 0), 0)          as avg_pr_size_lines,
         round(coalesce(pa.avg_days_to_merge, 0), 1)    as avg_days_to_merge,
 
         -- total contribution score

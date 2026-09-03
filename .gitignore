@@ -9,3 +9,8 @@ dbt_packages/
 *.egg-info/
 dist/
 .DS_Store
+.venv/
+*.duckdb
+processing/dbt/logs/
+processing/dbt/.user.yml
+processing/dbt/target/

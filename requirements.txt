@@ -1,0 +1,21 @@
+# Ingestion
+dlt[filesystem]>=0.5.4
+requests>=2.31.0
+python-dotenv>=1.0.1
+
+# Storage / query
+duckdb>=1.0.0
+pyarrow>=15.0.2
+
+# Transformations
+dbt-duckdb>=1.8.1
+
+# Orchestration
+dagster>=1.7.7
+dagster-webserver>=1.7.7
+dagster-dbt>=0.23.7
+
+# Tests
+pytest>=8.2.0
+pytest-mock>=3.14.0
+responses>=0.25.3

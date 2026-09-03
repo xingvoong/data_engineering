@@ -13,10 +13,6 @@ renamed as (
         is_merged,
         base_branch,
         head_branch,
-        commits,
-        additions,
-        deletions,
-        changed_files,
         created_at::timestamp as created_at,
         updated_at::timestamp as updated_at,
         closed_at::timestamp  as closed_at,
@@ -25,9 +21,7 @@ renamed as (
         -- derived
         case when merged_at is not null
             then date_diff('day', created_at::timestamp, merged_at::timestamp)
-        end                   as days_to_merge,
-
-        coalesce(additions, 0) + coalesce(deletions, 0) as total_changes
+        end                   as days_to_merge
     from source
 )
 

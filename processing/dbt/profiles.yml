@@ -3,7 +3,7 @@ github_pulse:
   outputs:
     dev:
       type: duckdb
-      path: "{{ env_var('DBT_DUCKDB_PATH', '/tmp/github_pulse.duckdb') }}"
+      path: "{{ env_var('DBT_DUCKDB_PATH', '/Users/xingvoong/github/data_engineering/github_pulse.duckdb') }}"
       threads: 4
     prod:
       type: clickhouse
