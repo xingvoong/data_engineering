@@ -175,17 +175,17 @@ flowchart LR
 
 ---
 
-### Phase 3 — Contributor Churn Prediction
+### Phase 3 — Contributor Churn Prediction ✅
 
 Predict which contributors are about to disengage so maintainers can reach out before they're gone.
 
-**What gets built:**
-- Feast feature views: contributor activity features (PR frequency, comment rate, days since last contribution)
-- Feature materialization: runs downstream of dbt, feeds a churn likelihood score
-- Embedding pipeline: vectorizes issue text to find semantically similar unresolved issues
-- Qdrant collection: enables "find issues similar to this one" for faster triage
+**What's running:**
+- `contributor_churn_features` dbt model — 3,919 contributors scored 0–1 using a rule-based weighted formula: 50% recency + 35% frequency decline + 15% engagement drop
+- Feast feature store: `contributor_activity` FeatureView (7-day TTL), `churn_prediction_v1` FeatureService, SQLite online store backed by parquet offline store
+- Feature materialization runs downstream of dbt via Dagster, pushes features into the online store for low-latency serving
+- Embedding pipeline: 1,383 issues vectorized with `all-MiniLM-L6-v2` (384-dim, CPU, no API key) and upserted into Qdrant — enables "find issues similar to this one" for faster triage
 
-**Skills demonstrated:** Feast, vector embeddings, Qdrant, ML/DE boundary, feature serving
+**Skills demonstrated:** Feast, feature stores, vector embeddings, Qdrant, semantic search, ML/DE boundary, feature serving
 
 ---
 
