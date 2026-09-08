@@ -189,6 +189,18 @@ Predict which contributors are about to disengage so maintainers can reach out b
 
 ---
 
+## What I Learned
+
+**Phase 1** taught me that incremental loading is harder than it looks. dlt handles the cursor logic, but you still have to think carefully about what "updated" means for each resource — repos, issues, and PRs all have different update semantics. dbt's ref() graph makes dependencies explicit in a way that ad-hoc SQL scripts never do.
+
+**Phase 2** clarified why streaming and batch coexist. Flink isn't a replacement for dbt — it's for the class of problems where 24-hour latency is the wrong answer. Stale issue detection is one of those. The Dagster sensor watching Kafka lag was the most practical thing I built: operational visibility is part of the pipeline, not an afterthought.
+
+**Phase 3** showed me where the DE/ML boundary actually is. A feature store isn't magic — it's a contract between the team that produces features and the team that consumes them. Feast enforces that contract. The embedding pipeline was a reminder that "ML" doesn't have to mean training a model: semantic search over issue titles is useful on its own, and MiniLM running on CPU is fast enough to embed 1,383 issues in under two minutes.
+
+The broader lesson: the stack here — dlt, dbt, DuckDB, Kafka, Flink, Feast, Qdrant, Dagster — has real seams between tools. Each handoff (DuckDB → parquet → Feast, dbt mart → Dagster asset → Qdrant) is a place where things can break, and understanding those seams is what separates knowing the tools from knowing how to use them together.
+
+---
+
 ## Quickstart
 
 **Prerequisites:** Docker, Docker Compose, Python 3.11+, GitHub personal access token
@@ -231,22 +243,22 @@ make up
 
 ```
 data_engineering/
-├── docker-compose.yml          # MinIO, ClickHouse (Phase 2: + Kafka, Flink, Qdrant)
+├── docker-compose.yml          # MinIO, ClickHouse, Kafka, Flink, Qdrant
 ├── .env.example                # Environment variable template
 ├── Makefile                    # Commands for every layer
 ├── requirements.txt            # Python dependencies
 ├── ingestion/
-│   ├── batch/                  # dlt pipeline (repos, issues, PRs) — Phase 1 ✅
-│   └── streaming/              # Kafka producer (GitHub Events API) — Phase 2
+│   ├── batch/                  # dlt pipeline (repos, issues, PRs) ✅
+│   └── streaming/              # Kafka producer (GitHub Events API) ✅
 ├── processing/
-│   ├── flink/                  # PyFlink streaming jobs — Phase 2
-│   └── dbt/                    # Staging + mart models, tests — Phase 1 ✅
+│   ├── flink/                  # PyFlink streaming jobs ✅
+│   └── dbt/                    # Staging + mart models, 24 tests ✅
 ├── storage/
-│   └── iceberg/                # PyIceberg catalog config, schema definitions
+│   └── clickhouse/             # ClickHouse table definitions for streaming layer
 ├── features/
-│   ├── feast/                  # Feature store config and feature views — Phase 3
-│   └── vectors/                # Embedding pipeline, Qdrant upsert — Phase 3
+│   ├── feast/                  # Feature store config, feature views, materialization ✅
+│   └── vectors/                # MiniLM embedding pipeline, Qdrant upsert ✅
 ├── orchestration/
-│   └── dagster/                # Assets, jobs, schedules, sensors — Phase 1 ✅
-└── tests/                      # Unit tests for pipeline and dbt SQL logic — Phase 1 ✅
+│   └── dagster/                # Assets, jobs, schedules, sensors ✅
+└── tests/                      # Unit + integration tests for all three phases ✅
 ```
