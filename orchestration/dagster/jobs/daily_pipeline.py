@@ -11,8 +11,8 @@ from dagster import (
 
 github_batch_job = define_asset_job(
     name="github_batch_pipeline",
-    selection=AssetSelection.groups("ingestion") | AssetSelection.all(),
-    description="Full batch pipeline: GitHub ingestion via dlt, then dbt transformations.",
+    selection=AssetSelection.groups("ingestion") | AssetSelection.groups("features") | AssetSelection.all(),
+    description="Full batch pipeline: GitHub ingestion via dlt, dbt transformations, and feature store materialization.",
 )
 
 daily_schedule = ScheduleDefinition(
