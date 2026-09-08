@@ -189,7 +189,7 @@ Predict which contributors are about to disengage so maintainers can reach out b
 
 ---
 
-## What I Learned
+## Takeaways
 
 **Phase 1** taught me that incremental loading is harder than it looks. dlt handles the cursor logic, but you still have to think carefully about what "updated" means for each resource — repos, issues, and PRs all have different update semantics. dbt's ref() graph makes dependencies explicit in a way that ad-hoc SQL scripts never do.
 
