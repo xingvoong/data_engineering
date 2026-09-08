@@ -14,3 +14,6 @@ dist/
 processing/dbt/logs/
 processing/dbt/.user.yml
 processing/dbt/target/
+
+# Feast generated artifacts
+features/feast/data/
